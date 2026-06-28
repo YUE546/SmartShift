@@ -1,0 +1,34 @@
+# Build results
+bin/
+obj/
+*.pdb
+*.exe.config
+
+# NuGet
+packages/
+*.nupkg
+
+# User settings
+.vs/
+*.suo
+*.user
+*.userosscache
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# Logs
+logs/
+*.log
+
+# Installer output
+installer/*.exe
+
+# MinGit
+MinGit-2.24.1.2-64-bit/
+
+# Documentation
+*.md
+*.html
+design/

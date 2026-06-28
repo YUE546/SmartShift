@@ -1,0 +1,40 @@
+<Window x:Class="SmartShift.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SmartShift 设置"
+        Width="720" Height="640"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanMinimize"
+        Icon="pack://application:,,,/Assets/icon_light_app.ico"
+        Background="{DynamicResource BgSecondaryBrush}">
+    <Grid Margin="0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TabControl x:Name="MainTabControl" Grid.Row="0" Margin="12" Padding="0">
+            <TabItem Header="主题" x:Name="ThemeTab">
+                <Frame x:Name="ThemeFrame" NavigationUIVisibility="Hidden"/>
+            </TabItem>
+            <TabItem Header="电源" x:Name="PowerTab">
+                <Frame x:Name="PowerFrame" NavigationUIVisibility="Hidden"/>
+            </TabItem>
+            <TabItem Header="快捷键" x:Name="HotkeyTab">
+                <Frame x:Name="HotkeyFrame" NavigationUIVisibility="Hidden"/>
+            </TabItem>
+            <TabItem Header="关于" x:Name="AboutTab">
+                <Frame x:Name="AboutFrame" NavigationUIVisibility="Hidden"/>
+            </TabItem>
+        </TabControl>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,12,12">
+            <Button Content="保存并关闭" Margin="0,0,8,0"
+                    Style="{DynamicResource PrimaryButton}"
+                    Click="SaveAndClose_Click"/>
+            <Button Content="取消"
+                    Style="{DynamicResource SecondaryButton}"
+                    Click="Cancel_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

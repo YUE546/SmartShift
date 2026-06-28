@@ -1,0 +1,59 @@
+<Page x:Class="SmartShift.UI.Pages.ThemeSettingsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Title="主题设置" Background="{DynamicResource BgPrimaryBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16,16,16,32">
+        <StackPanel>
+            <TextBlock Text="主题切换模式" Style="{DynamicResource SectionHeader}"/>
+
+            <RadioButton x:Name="SunriseSunsetRadio" GroupName="ThemeMode" Content="按日出日落自动切换（推荐）"
+                         Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,4" Checked="ThemeMode_Changed"/>
+            <StackPanel Margin="24,4,0,8" x:Name="SunriseSunsetPanel">
+                <StackPanel Orientation="Horizontal" Margin="0,4">
+                    <TextBlock Text="当前城市：" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <ComboBox x:Name="CityComboBox" Width="150" SelectionChanged="CityComboBox_SelectionChanged"/>
+                    <Button x:Name="DetectLocationButton" Content="自动检测位置" Margin="8,0,0,0" Padding="8,2"
+                            Style="{DynamicResource SecondaryButton}" Click="DetectLocation_Click"/>
+                </StackPanel>
+                <TextBlock x:Name="LocationStatusText" Margin="0,4,0,0" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                <StackPanel Orientation="Horizontal" Margin="0,4">
+                    <TextBlock Text="日出后切换到浅色主题" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBox x:Name="SunriseOffsetBox" Width="40" Text="0" Margin="4,0"/>
+                    <TextBlock Text="分钟" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4">
+                    <TextBlock Text="日落后切换到深色主题" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBox x:Name="SunsetOffsetBox" Width="40" Text="0" Margin="4,0"/>
+                    <TextBlock Text="分钟" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+                <TextBlock x:Name="SunriseSunsetInfo" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StackPanel>
+
+            <RadioButton x:Name="FixedTimeRadio" GroupName="ThemeMode" Content="按固定时间段"
+                         Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,4" Checked="ThemeMode_Changed"/>
+            <StackPanel Margin="24,4,0,8" x:Name="FixedTimePanel" IsEnabled="False">
+                <StackPanel Orientation="Horizontal" Margin="0,4">
+                    <TextBlock Text="浅色主题开始时间：" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBox x:Name="LightStartTimeBox" Width="60" Text="07:00"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4">
+                    <TextBlock Text="深色主题开始时间：" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBox x:Name="DarkStartTimeBox" Width="60" Text="19:00"/>
+                </StackPanel>
+            </StackPanel>
+
+            <RadioButton x:Name="DisabledRadio" GroupName="ThemeMode" Content="不自动切换（仅手动）"
+                         Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,4" Checked="ThemeMode_Changed"/>
+
+            <Separator Margin="0,12" Background="{DynamicResource BorderBrush}"/>
+
+            <TextBlock Text="手动切换" Style="{DynamicResource SectionHeader}"/>
+            <StackPanel Orientation="Horizontal" Margin="0,4">
+                <Button Content="切换为浅色主题" Margin="0,0,8,0"
+                        Style="{DynamicResource SecondaryButton}" Click="SwitchToLight_Click"/>
+                <Button Content="切换为深色主题"
+                        Style="{DynamicResource SecondaryButton}" Click="SwitchToDark_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
