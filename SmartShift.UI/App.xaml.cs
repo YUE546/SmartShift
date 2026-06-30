@@ -66,6 +66,13 @@ namespace SmartShift.UI
                 // 加载配置
                 _settings = SettingsStore.Load();
 
+                // 判断是否为开机自启（带 --autostart 参数）
+                bool launchedViaAutoStart = e.Args != null &&
+                    e.Args.Any(a => string.Equals(a, "--autostart", StringComparison.OrdinalIgnoreCase));
+
+                // 先创建托盘图标，确保后续应用主题时能正确更新图标
+                InitializeTrayIcon();
+
                 // 应用系统主题到 UI
                 ApplySystemTheme();
 
@@ -78,22 +85,29 @@ namespace SmartShift.UI
                     RegisterAutoStart();
                 }
 
-                // 创建托盘图标
-                InitializeTrayIcon();
-
                 // 初始化调度引擎
                 InitializeSchedulerEngine();
 
                 // 初始化 CPU 监控
                 InitializeCpuMonitor();
 
-                // 显示设置窗口
-                ShowSettingsWindow();
+                // 非开机自启时才显示设置窗口；开机自启仅创建窗口（维持热键消息循环）但不显示
+                if (!launchedViaAutoStart)
+                {
+                    ShowSettingsWindow();
+                }
+                else
+                {
+                    EnsureMainWindow();
+                }
 
-                // 首次运行提示
+                // 启动通知
                 if (_taskbarIcon != null)
                 {
-                    _taskbarIcon.ShowBalloonTip("SmartShift", "SmartShift 已启动，右键托盘图标可操作", BalloonIcon.Info);
+                    var tip = launchedViaAutoStart
+                        ? "SmartShift 已在后台启动，右键托盘图标可操作"
+                        : "SmartShift 已启动，右键托盘图标可操作";
+                    _taskbarIcon.ShowBalloonTip("SmartShift", tip, BalloonIcon.Info);
                 }
             }
             catch (Exception ex)
@@ -165,15 +179,9 @@ namespace SmartShift.UI
             _taskbarIcon = new TaskbarIcon();
             _taskbarIcon.ToolTipText = "SmartShift";
 
-            try
-            {
-                var iconStream = GetResourceStream(new Uri("pack://application:,,,/Assets/icon_light_tray.ico"))?.Stream;
-                if (iconStream != null)
-                    _taskbarIcon.Icon = new System.Drawing.Icon(iconStream);
-                else
-                    _taskbarIcon.Icon = System.Drawing.SystemIcons.Application;
-            }
-            catch
+            // 根据当前系统主题设置初始托盘图标
+            UpdateTrayIcon();
+            if (_taskbarIcon.Icon == null)
             {
                 try { _taskbarIcon.Icon = System.Drawing.SystemIcons.Application; } catch { }
             }
@@ -508,13 +516,18 @@ namespace SmartShift.UI
             catch { _taskbarIcon.ToolTipText = "SmartShift"; }
         }
 
-        private void ShowSettingsWindow()
+        private void EnsureMainWindow()
         {
             if (_mainWindow == null)
             {
                 _mainWindow = new MainWindow(_settings, _schedulerEngine, _cpuMonitor);
                 RegisterHotkeys();
             }
+        }
+
+        private void ShowSettingsWindow()
+        {
+            EnsureMainWindow();
             _mainWindow.Show();
             _mainWindow.Activate();
         }
@@ -525,7 +538,7 @@ namespace SmartShift.UI
             {
                 var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(
                     @"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
-                key?.SetValue("SmartShift", $"\"{System.Reflection.Assembly.GetExecutingAssembly().Location}\"");
+                key?.SetValue("SmartShift", $"\"{System.Reflection.Assembly.GetExecutingAssembly().Location}\" --autostart");
                 key?.Close();
                 Logger.Info("已设置开机自启");
             }
