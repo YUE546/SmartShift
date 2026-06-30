@@ -64,11 +64,25 @@ jobs:
           Compress-Archive -Path "$src\*" -DestinationPath $dst -CompressionLevel Optimal
           Write-Host "Packed -> $dst"
 
+      # 用 NSIS 编译安装包（windows-latest 预装 NSIS）
+      - name: Build installer (NSIS)
+        shell: pwsh
+        run: |
+          $nsis = & where.exe makensis | Select-Object -First 1
+          if (-not $nsis) { $nsis = "C:\Program Files (x86)\NSIS\makensis.exe" }
+          Push-Location installer
+          & $nsis "SmartShift-Installer-MUI.nsi"
+          Pop-Location
+          Move-Item installer\SmartShift-Setup-1.0.0.exe SmartShift-Release\SmartShift-Setup-1.0.0.exe -Force
+          Write-Host "Installer -> SmartShift-Release\SmartShift-Setup-1.0.0.exe"
+
       - name: Upload Release artifact
         uses: actions/upload-artifact@v4
         with:
           name: SmartShift-Release
-          path: SmartShift-Release/SmartShift-Release.zip
+          path: |
+            SmartShift-Release/SmartShift-Release.zip
+            SmartShift-Release/SmartShift-Setup-1.0.0.exe
           if-no-files-found: error
           retention-days: 30
 
@@ -77,7 +91,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: SmartShift-Release/SmartShift-Release.zip
+          files: |
+            SmartShift-Release/SmartShift-Release.zip
+            SmartShift-Release/SmartShift-Setup-1.0.0.exe
           generate_release_notes: true
           draft: false
           # 标签名含 '-' 视为预发布（如 v1.0.0-beta）
