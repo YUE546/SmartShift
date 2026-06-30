@@ -73,6 +73,10 @@ jobs:
       - name: Build installer (NSIS)
         shell: pwsh
         run: |
+          # 图标作为 Resource 嵌入程序集，不会输出到 bin 目录；
+          # 安装脚本需要独立的 Assets 文件，这里先复制到输出目录
+          Copy-Item -Path SmartShift.UI\Assets -Destination SmartShift.UI\bin\Release\Assets -Recurse -Force
+
           $nsis = & where.exe makensis | Select-Object -First 1
           if (-not $nsis) { $nsis = "C:\Program Files (x86)\NSIS\makensis.exe" }
           Push-Location installer
