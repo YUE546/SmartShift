@@ -41,12 +41,10 @@ jobs:
 
       # 运行 xunit 测试（通过 VSTest 适配器）
       - name: Run tests
-        uses: microsoft/vstest-action@v2.0.0
-        with:
-          testAssembly: SmartShift.Tests.dll
-          searchFolder: SmartShift.Tests\bin\Release
-          runInParallel: true
-          platform: x64
+        shell: pwsh
+        run: |
+          $vsTest = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -prerelease -find "Common7\IDE\Extensions\TestPlatform\vstest.console.exe" | Select-Object -First 1
+          & $vsTest "SmartShift.Tests\bin\Release\SmartShift.Tests.dll" /Parallel /Platform:x64 /Logger:trx
 
       - name: Upload test results
         if: always()
