@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿; SmartShift Installer - Modern UI Edition
+﻿; SmartShift Installer - Modern UI Edition
 !include "MUI2.nsh"
 
 !define APP_NAME "SmartShift"
