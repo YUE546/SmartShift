@@ -1,9 +1,9 @@
 name: Build
 
-# 触发条件：推送到主分支、提交 Pull Request、打 v* 标签、手动运行
+# 触发条件：推送到主分支及开发分支、提交 Pull Request、打 v* 标签、手动运行
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, trae/agent-tofPSD ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main, master ]
