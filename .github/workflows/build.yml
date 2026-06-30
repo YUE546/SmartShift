@@ -64,7 +64,12 @@ jobs:
           Compress-Archive -Path "$src\*" -DestinationPath $dst -CompressionLevel Optimal
           Write-Host "Packed -> $dst"
 
-      # 用 NSIS 编译安装包（windows-latest 预装 NSIS）
+      # 安装 NSIS（windows-latest 当前镜像未预装）
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis -y --no-progress
+
+      # 用 NSIS 编译安装包
       - name: Build installer (NSIS)
         shell: pwsh
         run: |
