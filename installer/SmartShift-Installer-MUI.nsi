@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿; SmartShift Installer - Modern UI Edition
+﻿; SmartShift Installer - Modern UI Edition
 !include "MUI2.nsh"
 
 !define APP_NAME "SmartShift"
@@ -7,7 +7,11 @@
 !define APP_PUBLISHER "SmartShift"
 !define INSTALL_DIR "$PROGRAMFILES\${APP_NAME}"
 !define INSTALLER_NAME "SmartShift-Setup-${APP_VERSION}.exe"
-!define SOURCE_DIR "h:\smartshift\SmartShift.UI\bin\Release"
+
+; 源文件目录：默认为相对于本脚本的编译输出目录；可通过命令行 /DSOURCE_DIR=... 覆盖
+!ifndef SOURCE_DIR
+    !define SOURCE_DIR "..\SmartShift.UI\bin\Release"
+!endif
 
 Name "${APP_NAME} ${APP_VERSION}"
 Caption "${APP_NAME} Setup"
@@ -89,7 +93,7 @@ Section "Desktop Shortcut" SEC_DESKTOP
 SectionEnd
 
 Section "Auto Start" SEC_AUTOSTART
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}" "$INSTDIR\${APP_EXE}"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}" '"$INSTDIR\${APP_EXE}" --autostart'
 SectionEnd
 
 LangString DESC_CORE ${LANG_SIMPCHINESE} "Core program files"
