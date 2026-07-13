@@ -96,6 +96,34 @@ jobs:
           retention-days: 30
 
       # 仅在打 v* 标签时，在同一个 job 内创建 GitHub Release
+      - name: Create source code zip
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          # 生成源码 zip（排除构建产物和 git 元数据）
+          $srcZip = "SmartShift-Release/SmartShift-1.0.0-beta-src.zip"
+          $tmpDir = "src-tmp"
+          New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+          # 复制源码（排除 bin/obj/.git）
+          Get-ChildItem -Path . -Recurse -Force |
+            Where-Object {
+              $_.FullName -notmatch '\\(bin|obj|\.git|SmartShift-Release|src-tmp)\\?' -and
+              $_.FullName -notmatch '\\(bin|obj|\.git|SmartShift-Release|src-tmp)$'
+            } |
+            ForEach-Object {
+              $rel = $_.FullName.Substring((Get-Location).Path.Length + 1)
+              if ($_.PSIsContainer) {
+                New-Item -ItemType Directory -Force -Path "$tmpDir/$rel" | Out-Null
+              } else {
+                $targetDir = Split-Path -Path "$tmpDir/$rel" -Parent
+                New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
+                Copy-Item -Path $_.FullName -Destination "$tmpDir/$rel" -Force
+              }
+            }
+          Compress-Archive -Path "$tmpDir/*" -DestinationPath $srcZip -CompressionLevel Optimal
+          Remove-Item -Recurse -Force $tmpDir
+          Write-Host "Source zip -> $srcZip"
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -103,6 +131,7 @@ jobs:
           files: |
             SmartShift-Release/SmartShift-Release.zip
             SmartShift-Release/SmartShift-Setup-1.0.0.exe
+            SmartShift-Release/SmartShift-1.0.0-beta-src.zip
           generate_release_notes: true
           draft: false
           # 标签名含 '-' 视为预发布（如 v1.0.0-beta）
