@@ -75,6 +75,35 @@ namespace SmartShift.Core.Scheduler
             }
         }
 
+        /// <summary>
+        /// 查询当前是否有应用规则匹配（基于缓存的进程列表）。
+        /// 供 CPU 监控等独立子系统在触发切换前判断是否应让步。
+        /// </summary>
+        public bool IsAppRuleCurrentlyMatched()
+        {
+            if (_settings.PowerAppRules == null || _settings.PowerAppRules.Count == 0)
+                return false;
+
+            try
+            {
+                var activeProcesses = GetCachedActiveProcessNames();
+                foreach (var rule in _settings.PowerAppRules)
+                {
+                    if (string.IsNullOrWhiteSpace(rule.ProcessName))
+                        continue;
+
+                    if (activeProcesses.Any(p => p.Equals(rule.ProcessName, StringComparison.OrdinalIgnoreCase)))
+                        return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"SchedulerEngine.IsAppRuleCurrentlyMatched 异常: {ex.Message}");
+            }
+
+            return false;
+        }
+
         /// <summary>获取缓存的进程列表，30秒内复用避免频繁调用 Process.GetProcesses()</summary>
         private IReadOnlyList<string> GetCachedActiveProcessNames()
         {

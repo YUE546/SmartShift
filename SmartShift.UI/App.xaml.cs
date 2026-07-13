@@ -319,6 +319,13 @@ namespace SmartShift.UI
 
             _cpuMonitor.CpuHighUsageTriggered += (s, e) =>
             {
+                // 有应用规则匹配时，CPU 监控让步，避免覆盖应用规则已切换的计划
+                if (_schedulerEngine != null && _schedulerEngine.IsAppRuleCurrentlyMatched())
+                {
+                    Logger.Info($"CPU 使用率 {e.CpuUsage:F1}% 超过阈值，但当前有应用规则匹配，跳过 CPU 高负载切换");
+                    return;
+                }
+
                 Logger.Info($"CPU 使用率 {e.CpuUsage:F1}% 超过阈值 {e.Threshold:F1}% 并持续 {e.SustainSeconds} 秒，切换到 {rule.HighCpuPlanName}");
                 bool ok = PowerPlanManager.SetActivePlanByName(rule.HighCpuPlanName);
                 _cpuTriggeredHighPlan = true;
