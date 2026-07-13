@@ -587,6 +587,23 @@ namespace SmartShift.UI.Pages
             Content = root;
         }
 
+        /// <summary>屏蔽的系统/关键进程，不参与应用规则匹配（避免误切换导致系统不稳定）</summary>
+        private static readonly HashSet<string> ExcludedSystemProcesses =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "dwm", "svchost", "system", "explorer", "rundll32",
+                "csrss", "lsass", "wininit", "services", "winlogon",
+                "smss", "fontdrvhost", "sihost", "taskhostw", "ctfmon",
+                "conhost", "spoolsv", "RuntimeBroker", "SearchHost",
+                "StartMenuExperienceHost", "ShellExperienceHost", "ApplicationFrameHost",
+                "SystemSettings", "LockApp", "WindowsTerminal", "WUDFHost",
+                "msmpeng", "SecurityHealthService", "SecurityHealthSystray",
+                "Widgets", "TextInputHost", "dllhost"
+            };
+
+        private static bool IsExcludedSystemProcess(string name)
+            => !string.IsNullOrEmpty(name) && ExcludedSystemProcesses.Contains(name);
+
         private void LoadProcessList()
         {
             try
@@ -594,6 +611,7 @@ namespace SmartShift.UI.Pages
                 var names = Process.GetProcesses()
                     .Select(p => { try { return p.ProcessName; } catch { return null; } })
                     .Where(n => n != null)
+                    .Where(n => !IsExcludedSystemProcess(n))
                     .Distinct()
                     .OrderBy(n => n)
                     .ToList();
