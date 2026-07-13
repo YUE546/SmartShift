@@ -142,14 +142,6 @@ namespace SmartShift.Core.Scheduler
 
             PowerPlan currentPlan = _getActivePlan();
 
-            // 如果 CPU 规则已启用且当前计划为高 CPU 计划，跳过调度器检查，避免与 CPU 监控冲突
-            if (_settings.CpuRule != null && _settings.CpuRule.Enabled &&
-                !string.IsNullOrEmpty(_settings.CpuRule.HighCpuPlanName) &&
-                currentPlan.Name.Equals(_settings.CpuRule.HighCpuPlanName, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
             PowerAppRule matchedRule = null;
 
             foreach (var rule in _settings.PowerAppRules)
@@ -168,10 +160,20 @@ namespace SmartShift.Core.Scheduler
 
             if (matchedRule != null)
             {
+                // 触发应用规则时不检测 CPU 负载，直接使用应用规则的目标计划
                 targetPlanName = matchedRule.TargetPlanName;
             }
             else
             {
+                // 无应用规则匹配时，若 CPU 规则已启用且当前计划为高 CPU 计划，
+                // 跳过默认计划切换，避免与 CPU 监控冲突
+                if (_settings.CpuRule != null && _settings.CpuRule.Enabled &&
+                    !string.IsNullOrEmpty(_settings.CpuRule.HighCpuPlanName) &&
+                    currentPlan.Name.Equals(_settings.CpuRule.HighCpuPlanName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
                 targetPlanName = _settings.DefaultPowerPlanName;
             }
 
