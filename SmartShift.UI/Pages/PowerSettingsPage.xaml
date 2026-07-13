@@ -14,9 +14,22 @@
             <TextBlock Text="当检测到以下程序运行时，自动切换电源计划：" Style="{DynamicResource HintText}" Margin="0,0,0,8"/>
 
             <DataGrid x:Name="RulesDataGrid" AutoGenerateColumns="False" CanUserAddRows="False"
-                      CanUserDeleteRows="False" SelectionMode="Single" Height="150"
-                      HeadersVisibility="Column">
+                      CanUserDeleteRows="False" SelectionMode="Single" Height="200"
+                      HeadersVisibility="All"
+                      AllowDrop="True"
+                      DragOver="RulesDataGrid_DragOver"
+                      Drop="RulesDataGrid_Drop"
+                      LoadingRow="RulesDataGrid_LoadingRow"
+                      MouseMove="RulesDataGrid_MouseMove">
                 <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="图标" Width="44">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Image Source="{Binding Icon}" Width="16" Height="16"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="进程名" Binding="{Binding ProcessName}" Width="*"/>
                     <DataGridTextColumn Header="运行时切换到" Binding="{Binding TargetPlanName}" Width="*"/>
                     <DataGridTextColumn Header="退出后切回" Binding="{Binding FallbackPlanName}" Width="*"/>
@@ -28,9 +41,15 @@
                         Style="{DynamicResource SecondaryButton}" Click="AddRule_Click"/>
                 <Button Content="删除规则" Margin="0,0,8,0"
                         Style="{DynamicResource SecondaryButton}" Click="RemoveRule_Click"/>
-                <Button Content="编辑规则"
+                <Button Content="编辑规则" Margin="0,0,8,0"
                         Style="{DynamicResource SecondaryButton}" Click="EditRule_Click"/>
+                <Button Content="上移" Margin="0,0,8,0"
+                        Style="{DynamicResource SecondaryButton}" Click="MoveUp_Click"/>
+                <Button Content="下移"
+                        Style="{DynamicResource SecondaryButton}" Click="MoveDown_Click"/>
             </StackPanel>
+            <TextBlock Text="提示：可拖动行调整优先级，列表顶部优先级最高；多规则匹配时按优先级生效。"
+                       Style="{DynamicResource HintText}" Margin="0,6,0,0"/>
 
             <Separator Margin="0,16"/>
 
