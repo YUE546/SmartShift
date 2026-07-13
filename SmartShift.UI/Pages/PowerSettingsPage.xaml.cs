@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using SmartShift.Core.Configuration;
@@ -16,7 +18,7 @@ namespace SmartShift.UI.Pages
     {
         private readonly UserSettings _settings;
         private readonly CpuMonitor _cpuMonitor;
-        private List<PowerAppRule> _rules;
+        private ObservableCollection<PowerAppRuleViewModel> _rules;
         private DispatcherTimer _cpuRefreshTimer;
         private PerformanceCounter _cpuCounter;
         private bool _disposed;
@@ -32,13 +34,18 @@ namespace SmartShift.UI.Pages
             InitializePowerPlanComboBox(HighCpuPlanCombo);
             InitializePowerPlanComboBox(NormalPlanCombo);
 
-            // 加载应用规则
-            _rules = _settings.PowerAppRules.Select(r => new PowerAppRule
+            // 加载应用规则（包装为 ViewModel 以支持图标绑定）
+            _rules = new ObservableCollection<PowerAppRuleViewModel>();
+            foreach (var r in _settings.PowerAppRules)
             {
-                ProcessName = r.ProcessName,
-                TargetPlanName = r.TargetPlanName,
-                FallbackPlanName = r.FallbackPlanName
-            }).ToList();
+                _rules.Add(new PowerAppRuleViewModel
+                {
+                    ProcessName = r.ProcessName,
+                    TargetPlanName = r.TargetPlanName,
+                    FallbackPlanName = r.FallbackPlanName,
+                    Icon = ProcessIconHelper.GetIcon(r.ProcessName)
+                });
+            }
             RulesDataGrid.ItemsSource = _rules;
 
             // 加载 CPU 规则
@@ -113,11 +120,12 @@ namespace SmartShift.UI.Pages
             var dialog = new PowerRuleDialog();
             if (dialog.ShowDialog() == true)
             {
-                _rules.Add(new PowerAppRule
+                _rules.Add(new PowerAppRuleViewModel
                 {
                     ProcessName = dialog.ProcessName,
                     TargetPlanName = dialog.TargetPlanName,
-                    FallbackPlanName = dialog.FallbackPlanName
+                    FallbackPlanName = dialog.FallbackPlanName,
+                    Icon = ProcessIconHelper.GetIcon(dialog.ProcessName)
                 });
                 RulesDataGrid.Items.Refresh();
             }
@@ -125,7 +133,7 @@ namespace SmartShift.UI.Pages
 
         private void RemoveRule_Click(object sender, RoutedEventArgs e)
         {
-            if (RulesDataGrid.SelectedItem is PowerAppRule rule)
+            if (RulesDataGrid.SelectedItem is PowerAppRuleViewModel rule)
             {
                 _rules.Remove(rule);
                 RulesDataGrid.Items.Refresh();
@@ -134,7 +142,7 @@ namespace SmartShift.UI.Pages
 
         private void EditRule_Click(object sender, RoutedEventArgs e)
         {
-            if (RulesDataGrid.SelectedItem is PowerAppRule rule)
+            if (RulesDataGrid.SelectedItem is PowerAppRuleViewModel rule)
             {
                 var dialog = new PowerRuleDialog
                 {
@@ -144,12 +152,109 @@ namespace SmartShift.UI.Pages
                 };
                 if (dialog.ShowDialog() == true)
                 {
+                    bool procChanged = !string.Equals(rule.ProcessName, dialog.ProcessName, StringComparison.OrdinalIgnoreCase);
                     rule.ProcessName = dialog.ProcessName;
                     rule.TargetPlanName = dialog.TargetPlanName;
                     rule.FallbackPlanName = dialog.FallbackPlanName;
-                    RulesDataGrid.Items.Refresh();
+                    if (procChanged)
+                        rule.Icon = ProcessIconHelper.GetIcon(dialog.ProcessName);
                 }
             }
+        }
+
+        private void MoveUp_Click(object sender, RoutedEventArgs e)
+        {
+            int index = RulesDataGrid.SelectedIndex;
+            if (index <= 0) return;
+            var item = _rules[index];
+            _rules.RemoveAt(index);
+            _rules.Insert(index - 1, item);
+            RulesDataGrid.SelectedIndex = index - 1;
+            RulesDataGrid.Items.Refresh();
+        }
+
+        private void MoveDown_Click(object sender, RoutedEventArgs e)
+        {
+            int index = RulesDataGrid.SelectedIndex;
+            if (index < 0 || index >= _rules.Count - 1) return;
+            var item = _rules[index];
+            _rules.RemoveAt(index);
+            _rules.Insert(index + 1, item);
+            RulesDataGrid.SelectedIndex = index + 1;
+            RulesDataGrid.Items.Refresh();
+        }
+
+        // ====== 拖拽调整优先级 ======
+
+        private PowerAppRuleViewModel _dragItem;
+        private int _dragIndex = -1;
+
+        private void RulesDataGrid_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed || _dragItem == null)
+                return;
+
+            // 启动拖拽
+            try
+            {
+                DragDrop.DoDragDrop(RulesDataGrid, _dragItem, DragDropEffects.Move);
+            }
+            finally
+            {
+                _dragItem = null;
+                _dragIndex = -1;
+            }
+        }
+
+        private void RulesDataGrid_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            // 记录鼠标按下时的行/项，供 MouseMove 判断是否开始拖拽
+            e.Row.PreviewMouseLeftButtonDown += (s, args) =>
+            {
+                if (e.Row.Item is PowerAppRuleViewModel item)
+                {
+                    _dragItem = item;
+                    _dragIndex = e.Row.GetIndex();
+                }
+            };
+
+            // 行 Header 显示从 1 开始的优先级编号
+            e.Row.Header = (e.Row.GetIndex() + 1).ToString();
+        }
+
+        private void RulesDataGrid_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(PowerAppRuleViewModel)))
+                e.Effects = DragDropEffects.Move;
+            else
+                e.Effects = DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void RulesDataGrid_Drop(object sender, DragEventArgs e)
+        {
+            if (_dragItem == null || _dragIndex < 0) return;
+
+            // 计算落点行索引
+            var targetRow = FindVisualParent<DataGridRow>(e.OriginalSource as DependencyObject);
+            if (targetRow == null) return;
+            int targetIndex = targetRow.GetIndex();
+            if (targetIndex < 0 || targetIndex == _dragIndex) return;
+
+            _rules.RemoveAt(_dragIndex);
+            _rules.Insert(targetIndex, _dragItem);
+            RulesDataGrid.SelectedIndex = targetIndex;
+            RulesDataGrid.Items.Refresh();
+
+            _dragItem = null;
+            _dragIndex = -1;
+        }
+
+        private static T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            while (child != null && !(child is T))
+                child = System.Windows.Media.VisualTreeHelper.GetParent(child);
+            return child as T;
         }
 
         // ====== CPU 规则 ======
@@ -164,7 +269,13 @@ namespace SmartShift.UI.Pages
         public void ApplySettings(UserSettings settings)
         {
             settings.DefaultPowerPlanName = DefaultPlanComboBox.SelectedItem as string ?? "Balanced";
-            settings.PowerAppRules = _rules.ToList();
+            // 按当前列表顺序保存（顺序即优先级，列表顶部优先级最高）
+            settings.PowerAppRules = _rules.Select(vm => new PowerAppRule
+            {
+                ProcessName = vm.ProcessName,
+                TargetPlanName = vm.TargetPlanName,
+                FallbackPlanName = vm.FallbackPlanName
+            }).ToList();
 
             settings.CpuRule.Enabled = CpuEnabled.IsChecked == true;
             if (float.TryParse(ThresholdBox.Text, out float threshold))
@@ -181,15 +292,19 @@ namespace SmartShift.UI.Pages
         {
             DefaultPlanComboBox.SelectedItem = settings.DefaultPowerPlanName;
 
-            // 重新加载应用规则
-            _rules = settings.PowerAppRules.Select(r => new PowerAppRule
+            // 重新加载应用规则（保留拖拽后的顺序同步）
+            _rules = new ObservableCollection<PowerAppRuleViewModel>();
+            foreach (var r in settings.PowerAppRules)
             {
-                ProcessName = r.ProcessName,
-                TargetPlanName = r.TargetPlanName,
-                FallbackPlanName = r.FallbackPlanName
-            }).ToList();
+                _rules.Add(new PowerAppRuleViewModel
+                {
+                    ProcessName = r.ProcessName,
+                    TargetPlanName = r.TargetPlanName,
+                    FallbackPlanName = r.FallbackPlanName,
+                    Icon = ProcessIconHelper.GetIcon(r.ProcessName)
+                });
+            }
             RulesDataGrid.ItemsSource = _rules;
-            RulesDataGrid.Items.Refresh();
 
             // 刷新 CPU 规则
             CpuEnabled.IsChecked = settings.CpuRule.Enabled;
@@ -212,6 +327,44 @@ namespace SmartShift.UI.Pages
         }
     }
 
+    /// <summary>电源应用规则的 UI 视图模型，封装图标绑定</summary>
+    public class PowerAppRuleViewModel : System.ComponentModel.INotifyPropertyChanged
+    {
+        private string _processName;
+        private string _targetPlanName;
+        private string _fallbackPlanName;
+        private ImageSource _icon;
+
+        public string ProcessName
+        {
+            get => _processName;
+            set { _processName = value; OnPropertyChanged(nameof(ProcessName)); }
+        }
+
+        public string TargetPlanName
+        {
+            get => _targetPlanName;
+            set { _targetPlanName = value; OnPropertyChanged(nameof(TargetPlanName)); }
+        }
+
+        public string FallbackPlanName
+        {
+            get => _fallbackPlanName;
+            set { _fallbackPlanName = value; OnPropertyChanged(nameof(FallbackPlanName)); }
+        }
+
+        public ImageSource Icon
+        {
+            get => _icon;
+            set { _icon = value; OnPropertyChanged(nameof(Icon)); }
+        }
+
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string propertyName)
+            => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+    }
+
     /// <summary>电源规则编辑对话框</summary>
     public class PowerRuleDialog : Window
     {
@@ -223,7 +376,7 @@ namespace SmartShift.UI.Pages
         private ComboBox _targetPlanCombo;
         private ComboBox _fallbackPlanCombo;
         private TextBox _processFilterBox;
-        private List<string> _allProcesses;
+        private List<ProcessListItem> _allProcesses;
 
         public PowerRuleDialog()
         {
@@ -302,6 +455,9 @@ namespace SmartShift.UI.Pages
             if (fgBrush != null) _processCombo.Foreground = fgBrush;
             if (inputBgBrush != null) _processCombo.Background = inputBgBrush;
             if (borderBrush != null) _processCombo.BorderBrush = borderBrush;
+
+            // 设置 ItemTemplate，使下拉项显示"图标 + 进程名"
+            _processCombo.ItemTemplate = CreateProcessItemTemplate();
             panel.Children.Add(_processCombo);
 
             LoadProcessList();
@@ -361,7 +517,11 @@ namespace SmartShift.UI.Pages
 
             if (!string.IsNullOrEmpty(ProcessName))
             {
-                _processCombo.SelectedItem = ProcessName;
+                // 在已加载的进程列表中找到匹配项作为 SelectedItem
+                var match = _allProcesses.FirstOrDefault(p =>
+                    string.Equals(p.Name, ProcessName, StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                    _processCombo.SelectedItem = match;
                 _processFilterBox.Text = ProcessName;
             }
 
@@ -387,8 +547,10 @@ namespace SmartShift.UI.Pages
 
             okButton.Click += (s, e) =>
             {
-                string proc;
-                if (_processCombo.SelectedItem != null)
+                string proc = null;
+                if (_processCombo.SelectedItem is ProcessListItem item)
+                    proc = item.Name;
+                else if (_processCombo.SelectedItem != null)
                     proc = _processCombo.SelectedItem.ToString();
                 else
                     proc = (_processCombo.Text ?? "").Trim();
@@ -425,19 +587,45 @@ namespace SmartShift.UI.Pages
             Content = root;
         }
 
+        /// <summary>屏蔽的系统/关键进程，不参与应用规则匹配（避免误切换导致系统不稳定）</summary>
+        private static readonly HashSet<string> ExcludedSystemProcesses =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "dwm", "svchost", "system", "explorer", "rundll32",
+                "csrss", "lsass", "wininit", "services", "winlogon",
+                "smss", "fontdrvhost", "sihost", "taskhostw", "ctfmon",
+                "conhost", "spoolsv", "RuntimeBroker", "SearchHost",
+                "StartMenuExperienceHost", "ShellExperienceHost", "ApplicationFrameHost",
+                "SystemSettings", "LockApp", "WindowsTerminal", "WUDFHost",
+                "msmpeng", "SecurityHealthService", "SecurityHealthSystray",
+                "Widgets", "TextInputHost", "dllhost"
+            };
+
+        private static bool IsExcludedSystemProcess(string name)
+            => !string.IsNullOrEmpty(name) && ExcludedSystemProcesses.Contains(name);
+
         private void LoadProcessList()
         {
             try
             {
-                _allProcesses = Process.GetProcesses()
+                var names = Process.GetProcesses()
                     .Select(p => { try { return p.ProcessName; } catch { return null; } })
                     .Where(n => n != null)
+                    .Where(n => !IsExcludedSystemProcess(n))
                     .Distinct()
                     .OrderBy(n => n)
                     .ToList();
+
+                _allProcesses = names
+                    .Select(n => new ProcessListItem
+                    {
+                        Name = n,
+                        Icon = ProcessIconHelper.GetIcon(n)
+                    })
+                    .ToList();
                 RefreshProcessCombo(_allProcesses);
             }
-            catch { _allProcesses = new List<string>(); }
+            catch { _allProcesses = new List<ProcessListItem>(); }
         }
 
         private void ProcessFilterBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -445,17 +633,54 @@ namespace SmartShift.UI.Pages
             string filter = (_processFilterBox.Text ?? "").Trim().ToLowerInvariant();
             var filtered = string.IsNullOrEmpty(filter)
                 ? _allProcesses
-                : _allProcesses.Where(p => p.ToLowerInvariant().Contains(filter)).ToList();
+                : _allProcesses.Where(p => p.Name.ToLowerInvariant().Contains(filter)).ToList();
             RefreshProcessCombo(filtered);
         }
 
-        private void RefreshProcessCombo(List<string> processes)
+        private void RefreshProcessCombo(List<ProcessListItem> processes)
         {
             object current = _processCombo.SelectedItem;
             _processCombo.Items.Clear();
-            foreach (var name in processes) _processCombo.Items.Add(name);
+            foreach (var item in processes) _processCombo.Items.Add(item);
             if (current != null && _processCombo.Items.Contains(current))
                 _processCombo.SelectedItem = current;
         }
+
+        /// <summary>构造进程 ComboBox 项的 DataTemplate：图标 + 名称</summary>
+        private DataTemplate CreateProcessItemTemplate()
+        {
+            // 用 XAML 字符串构造模板（最简洁的方式）
+            string xaml = @"
+<DataTemplate xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
+              xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
+    <StackPanel Orientation=""Horizontal"">
+        <Image Source=""{Binding Icon}"" Width=""16"" Height=""16""
+               VerticalAlignment=""Center"" Margin=""0,0,8,0""/>
+        <TextBlock Text=""{Binding Name}"" VerticalAlignment=""Center""/>
+    </StackPanel>
+</DataTemplate>";
+
+            return (DataTemplate)System.Windows.Markup.XamlReader.Parse(xaml);
+        }
+    }
+
+    /// <summary>进程选择下拉框的项：进程名 + 图标</summary>
+    public class ProcessListItem
+    {
+        public string Name { get; set; }
+        public ImageSource Icon { get; set; }
+
+        public override string ToString() => Name ?? string.Empty;
+
+        // 重写 Equals/GetHashCode 使 Contains 能按名称匹配
+        public override bool Equals(object obj)
+        {
+            if (obj is ProcessListItem other)
+                return string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase);
+            return false;
+        }
+
+        public override int GetHashCode()
+            => Name == null ? 0 : StringComparer.OrdinalIgnoreCase.GetHashCode(Name);
     }
 }

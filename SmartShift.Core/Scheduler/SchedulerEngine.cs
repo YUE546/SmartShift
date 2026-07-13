@@ -75,6 +75,35 @@ namespace SmartShift.Core.Scheduler
             }
         }
 
+        /// <summary>
+        /// 查询当前是否有应用规则匹配（基于缓存的进程列表）。
+        /// 供 CPU 监控等独立子系统在触发切换前判断是否应让步。
+        /// </summary>
+        public bool IsAppRuleCurrentlyMatched()
+        {
+            if (_settings.PowerAppRules == null || _settings.PowerAppRules.Count == 0)
+                return false;
+
+            try
+            {
+                var activeProcesses = GetCachedActiveProcessNames();
+                foreach (var rule in _settings.PowerAppRules)
+                {
+                    if (string.IsNullOrWhiteSpace(rule.ProcessName))
+                        continue;
+
+                    if (activeProcesses.Any(p => p.Equals(rule.ProcessName, StringComparison.OrdinalIgnoreCase)))
+                        return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"SchedulerEngine.IsAppRuleCurrentlyMatched 异常: {ex.Message}");
+            }
+
+            return false;
+        }
+
         /// <summary>获取缓存的进程列表，30秒内复用避免频繁调用 Process.GetProcesses()</summary>
         private IReadOnlyList<string> GetCachedActiveProcessNames()
         {
@@ -142,14 +171,6 @@ namespace SmartShift.Core.Scheduler
 
             PowerPlan currentPlan = _getActivePlan();
 
-            // 如果 CPU 规则已启用且当前计划为高 CPU 计划，跳过调度器检查，避免与 CPU 监控冲突
-            if (_settings.CpuRule != null && _settings.CpuRule.Enabled &&
-                !string.IsNullOrEmpty(_settings.CpuRule.HighCpuPlanName) &&
-                currentPlan.Name.Equals(_settings.CpuRule.HighCpuPlanName, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
             PowerAppRule matchedRule = null;
 
             foreach (var rule in _settings.PowerAppRules)
@@ -168,10 +189,20 @@ namespace SmartShift.Core.Scheduler
 
             if (matchedRule != null)
             {
+                // 触发应用规则时不检测 CPU 负载，直接使用应用规则的目标计划
                 targetPlanName = matchedRule.TargetPlanName;
             }
             else
             {
+                // 无应用规则匹配时，若 CPU 规则已启用且当前计划为高 CPU 计划，
+                // 跳过默认计划切换，避免与 CPU 监控冲突
+                if (_settings.CpuRule != null && _settings.CpuRule.Enabled &&
+                    !string.IsNullOrEmpty(_settings.CpuRule.HighCpuPlanName) &&
+                    currentPlan.Name.Equals(_settings.CpuRule.HighCpuPlanName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
                 targetPlanName = _settings.DefaultPowerPlanName;
             }
 
