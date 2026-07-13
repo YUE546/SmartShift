@@ -587,39 +587,6 @@ namespace SmartShift.UI.Pages
             Content = root;
         }
 
-        /// <summary>系统进程黑名单，这些进程不应作为电源规则的目标</summary>
-        private static readonly HashSet<string> SystemProcessBlacklist = new HashSet<string>(
-            StringComparer.OrdinalIgnoreCase)
-        {
-            "dwm",       // 桌面窗口管理器
-            "svchost",   // 服务宿主
-            "system",    // 系统进程
-            "explorer",  // 资源管理器
-            "rundll32",  // DLL 执行器
-            "csrss",     // 客户/服务运行时子系统
-            "lsass",     // 本地安全机构子系统服务
-            "smss",      // 会话管理器子系统
-            "wininit",   // Windows 启动应用
-            "winlogon",  // Windows 登录
-            "services",  // 服务控制管理器
-            "spoolsv",   // 打印后台处理
-            "conhost",   // 控制台窗口主机
-            "taskhostw", // 任务宿主
-            "fontdrvhost",// 字体驱动宿主
-            "sihost",    // Shell 交互主机
-            "ctfmon",    // 文本服务框架
-            "WUDFHost",  // 用户模式驱动程序框架
-            "dllhost",   // COM Surrogate
-            "RuntimeBroker",      // 运行时代理
-            "backgroundTaskHost",  // 后台任务宿主
-            "SearchIndexer",       // 搜索索引
-            "SearchHost",          // 搜索宿主
-            "StartMenuExperienceHost", // 开始菜单体验宿主
-            "ShellExperienceHost",     // Shell 体验宿主
-            "TextInputHost",           // 文本输入宿主
-            "Widgets",                 // 小组件
-        };
-
         private void LoadProcessList()
         {
             try
@@ -627,7 +594,6 @@ namespace SmartShift.UI.Pages
                 var names = Process.GetProcesses()
                     .Select(p => { try { return p.ProcessName; } catch { return null; } })
                     .Where(n => n != null)
-                    .Where(n => !SystemProcessBlacklist.Contains(n))
                     .Distinct()
                     .OrderBy(n => n)
                     .ToList();
